@@ -1,0 +1,32 @@
+{
+  "name": "acp-loop",
+  "version": "0.1.0",
+  "description": "Recurring prompt scheduler for ACP agents",
+  "type": "module",
+  "bin": {
+    "acp-loop": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsdown src/cli.ts --format esm --clean --platform node --target node22",
+    "dev": "tsx src/cli.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "acpx": "^0.1.0",
+    "commander": "^13.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsdown": "^0.21.0-beta.2",
+    "tsx": "^4.0.0",
+    "typescript": "^5.7.0"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "license": "MIT"
+}
