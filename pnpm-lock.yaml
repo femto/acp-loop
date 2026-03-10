@@ -14,6 +14,9 @@ importers:
       commander:
         specifier: ^13.0.0
         version: 13.1.0
+      croner:
+        specifier: ^10.0.1
+        version: 10.0.1
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -422,6 +425,10 @@ packages:
   commander@13.1.0:
     resolution: {integrity: sha512-/rFeCpNJQbhSZjGVwO9RFV3xPqbnERS8MmIQzCtD/zl6gpJuV/bMLuN92oG3F7d8oDEHHRrujSXNUr8fpjntKw==}
     engines: {node: '>=18'}
+
+  croner@10.0.1:
+    resolution: {integrity: sha512-ixNtAJndqh173VQ4KodSdJEI6nuioBWI0V1ITNKhZZsO0pEMoDxz539T4FTTbSZ/xIOSuDnzxLVRqBVSvPNE2g==}
+    engines: {node: '>=18.0'}
 
   defu@6.1.4:
     resolution: {integrity: sha512-mEQCMmwJu317oSz8CwdIOdwf3xMif1ttiM8LTufzc3g6kR+9Pe236twL8j3IYT1F7GfRgGcW6MWxzZjLIkuHIg==}
@@ -898,6 +905,8 @@ snapshots:
   cac@7.0.0: {}
 
   commander@13.1.0: {}
+
+  croner@10.0.1: {}
 
   defu@6.1.4: {}
 

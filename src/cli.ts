@@ -2,9 +2,11 @@
 
 import { spawn } from 'node:child_process';
 import { Command, InvalidArgumentError } from 'commander';
+import { Cron } from 'croner';
 
 type LoopOptions = {
-  interval: number;
+  interval?: number;
+  cron?: string;
   agent: string;
   max?: number;
   timeout?: number;
@@ -92,23 +94,62 @@ async function runLoop(prompt: string, options: LoopOptions): Promise<void> {
   const startedAt = Date.now();
   const timeoutAt = options.timeout ? startedAt + options.timeout : undefined;
   let iteration = 0;
-  let stopRequested = false;
+  let stopReason: string | undefined;
+  let runInProgress = false;
+  let scheduler: Cron | undefined;
+  let timeoutHandle: NodeJS.Timeout | undefined;
+  let resolveDone: (() => void) | undefined;
 
-  process.on('SIGINT', () => {
-    stopRequested = true;
+  const done = new Promise<void>((resolve) => {
+    resolveDone = resolve;
   });
 
-  while (true) {
-    if (stopRequested) {
-      console.log(`[${timestamp()}] stopping: interrupted`);
-      break;
+  const cleanup = () => {
+    if (scheduler) {
+      scheduler.stop();
+      scheduler = undefined;
+    }
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+      timeoutHandle = undefined;
+    }
+  };
+
+  const finishIfStopped = () => {
+    if (!stopReason || runInProgress) {
+      return;
+    }
+    cleanup();
+    resolveDone?.();
+  };
+
+  const stop = (reason: string) => {
+    if (stopReason) {
+      return;
+    }
+    stopReason = reason;
+    console.log(`[${timestamp()}] stopping: ${reason}`);
+    finishIfStopped();
+  };
+
+  const hasTimedOut = () => timeoutAt !== undefined && Date.now() >= timeoutAt;
+
+  const runIteration = async () => {
+    if (stopReason) {
+      return;
+    }
+    if (runInProgress) {
+      if (!options.quiet) {
+        console.log(`[${timestamp()}] skipping: previous iteration still in progress`);
+      }
+      return;
+    }
+    if (hasTimedOut()) {
+      stop('timeout reached');
+      return;
     }
 
-    if (timeoutAt !== undefined && Date.now() >= timeoutAt) {
-      console.log(`[${timestamp()}] stopping: timeout reached`);
-      break;
-    }
-
+    runInProgress = true;
     iteration += 1;
     console.log(`[${timestamp()}] iteration ${iteration}`);
 
@@ -122,27 +163,77 @@ async function runLoop(prompt: string, options: LoopOptions): Promise<void> {
       }
 
       if (options.until && result.output.includes(options.until)) {
-        console.log(`[${timestamp()}] stopping: matched --until "${options.until}"`);
-        break;
+        stop(`matched --until "${options.until}"`);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       console.error(`[${timestamp()}] failed to run acpx: ${message}`);
       process.exitCode = 1;
-      break;
+      stopReason = 'acpx failed';
+    } finally {
+      runInProgress = false;
+    }
+
+    if (stopReason) {
+      finishIfStopped();
+      return;
     }
 
     if (options.max !== undefined && iteration >= options.max) {
-      console.log(`[${timestamp()}] stopping: reached --max ${options.max}`);
-      break;
+      stop(`reached --max ${options.max}`);
+      return;
     }
 
-    if (timeoutAt !== undefined && Date.now() >= timeoutAt) {
-      console.log(`[${timestamp()}] stopping: timeout reached`);
-      break;
+    if (hasTimedOut()) {
+      stop('timeout reached');
+      return;
     }
+  };
 
-    await sleep(options.interval);
+  const onSigint = () => {
+    stop('interrupted');
+  };
+  process.on('SIGINT', onSigint);
+
+  try {
+    if (options.cron !== undefined) {
+      if (hasTimedOut()) {
+        stop('timeout reached');
+      } else {
+        if (timeoutAt !== undefined) {
+          timeoutHandle = setTimeout(() => {
+            stop('timeout reached');
+          }, Math.max(0, timeoutAt - Date.now()));
+        }
+        scheduler = new Cron(options.cron, () => {
+          void runIteration();
+        }, { protect: true });
+      }
+
+      await done;
+    } else {
+      while (!stopReason) {
+        await runIteration();
+        if (stopReason) {
+          break;
+        }
+        await sleep(options.interval!);
+      }
+    }
+  } finally {
+    process.off('SIGINT', onSigint);
+    cleanup();
+  }
+}
+
+function validateCronExpression(value: string): string | undefined {
+  try {
+    const validator = new Cron(value, { paused: true });
+    validator.stop();
+    return undefined;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return `Invalid cron expression "${value}": ${message}`;
   }
 }
 
@@ -152,13 +243,25 @@ program
   .name('acp-loop')
   .description('Run an ACP prompt on a recurring interval')
   .argument('<prompt>', 'prompt to execute')
-  .requiredOption('--interval <duration>', 'interval between runs (e.g., 30s, 5m, 1h)', parseDuration)
+  .option('--interval <duration>', 'interval between runs (e.g., 30s, 5m, 1h)', parseDuration)
+  .option('--cron <expression>', 'cron expression schedule (e.g., "0 3 * * *")')
   .option('--agent <name>', 'agent to use', 'codex')
   .option('--max <n>', 'max iterations', parsePositiveInt)
   .option('--timeout <duration>', 'max total run time (e.g., 30s, 5m, 1h)', parseDuration)
   .option('--until <string>', 'stop when output contains this')
   .option('--quiet', 'minimal output', false)
   .action(async (prompt: string, options: LoopOptions) => {
+    const hasInterval = options.interval !== undefined;
+    const hasCron = options.cron !== undefined;
+    if (hasInterval === hasCron) {
+      program.error('error: specify exactly one of --interval or --cron');
+    }
+    if (options.cron) {
+      const errorMessage = validateCronExpression(options.cron);
+      if (errorMessage) {
+        program.error(`error: ${errorMessage}`);
+      }
+    }
     await runLoop(prompt, options);
   });
 
