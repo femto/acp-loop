@@ -169,7 +169,7 @@ function validateCronExpression(value) {
 	}
 }
 const program = new Command();
-program.name("acp-loop").description("Run an ACP prompt on a recurring interval").argument("<prompt>", "prompt to execute").option("--interval <duration>", "interval between runs (e.g., 30s, 5m, 1h)", parseDuration).option("--cron <expression>", "cron expression schedule (e.g., \"0 3 * * *\")").option("--agent <name>", "agent to use", "codex").option("--max <n>", "max iterations", parsePositiveInt).option("--timeout <duration>", "max total run time (e.g., 30s, 5m, 1h)", parseDuration).option("--until <string>", "stop when output contains this").option("--quiet", "minimal output", false).action(async (prompt, options) => {
+program.name("acp-loop").version("0.2.0").description("Run an ACP prompt on a recurring interval").argument("<prompt>", "prompt to execute").option("--interval <duration>", "interval between runs (e.g., 30s, 5m, 1h)", parseDuration).option("--cron <expression>", "cron expression schedule (e.g., \"0 3 * * *\")").option("--agent <name>", "agent to use", "codex").option("--max <n>", "max iterations", parsePositiveInt).option("--timeout <duration>", "max total run time (e.g., 30s, 5m, 1h)", parseDuration).option("--until <string>", "stop when output contains this").option("--quiet", "minimal output", false).action(async (prompt, options) => {
 	if (options.interval !== void 0 === (options.cron !== void 0)) program.error("error: specify exactly one of --interval or --cron");
 	if (options.cron) {
 		const errorMessage = validateCronExpression(options.cron);

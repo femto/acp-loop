@@ -241,6 +241,7 @@ const program = new Command();
 
 program
   .name('acp-loop')
+  .version('0.2.0')
   .description('Run an ACP prompt on a recurring interval')
   .argument('<prompt>', 'prompt to execute')
   .option('--interval <duration>', 'interval between runs (e.g., 30s, 5m, 1h)', parseDuration)
