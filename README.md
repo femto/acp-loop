@@ -30,28 +30,37 @@ acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say he
 3. **Scheduled tasks** - Daily summaries, weekly reports
 4. **Long-running workflows** - Check progress, auto-retry failed tasks
 
+## CLI Options
+
+- `--interval <duration>`: Run on a fixed interval such as `30s`, `5m`, or `1h`
+- `--cron <expression>`: Run on a cron schedule instead of a fixed interval
+- `-a, --agent-name <name>`: Use an `acpx` short alias or configured agent name such as `claude` or `codex`
+- `--agent <command>`: Pass a raw ACP agent command straight through to `acpx --agent`
+- `--max <n>`: Stop after `n` iterations
+- `--timeout <duration>`: Stop after a total elapsed duration
+- `--until <string>`: Stop when output contains a matching string
+- `--quiet`: Suppress loop progress logs and stream only agent output
+
+Agent selection rules:
+
+- Omit both `--agent` and `-a` to use `acpx exec` with its configured default agent
+- Use `-a claude` for the normal short-alias path
+- Use `--agent "npx -y @zed-industries/claude-agent-acp"` when you need to pass a full custom command
+- `--agent` and `-a` are mutually exclusive
+
 ## Design Questions
 
 ### 1. Session Management
 - New session per loop iteration? Or reuse session?
 - Claude Code's /loop runs within a session
-- acp-loop could be standalone or integrate with acp-team
+- acp-loop is a standalone CLI
 
-### 2. Integration with acp-team
-```bash
-# Poll for unclaimed tasks and auto-dispatch
-acp-loop --interval 30s "acp-team poll"
-
-# Watch for completed tasks
-acp-loop --interval 1m "acp-team status | grep completed"
-```
-
-### 3. Output Handling
+### 2. Output Handling
 - Log to file?
 - Send to inbox?
 - Conditional execution (only run if previous check found something)?
 
-### 4. Stop Conditions
+### 3. Stop Conditions
 ```bash
 # Run until condition met
 acp-loop --until "deploy succeeded" --interval 1m "check deploy status"
@@ -73,13 +82,7 @@ acp-loop
 └── logger
 ```
 
-### Option B: acp-team integration
-```
-acp-team watch   # already exists, similar concept
-acp-team loop    # new subcommand
-```
-
-### Option C: acpx extension
+### Option B: acpx extension
 ```
 acpx loop --interval 5m "prompt"
 ```
@@ -116,7 +119,6 @@ async function loop(options: {
 ## References
 
 - Claude Code /loop: `Added /loop command to run a prompt or slash command on a recurring interval (e.g. /loop 5m check the deploy)`
-- acp-team watch: Similar polling concept for task assignment
 
 ## Troubleshooting
 
@@ -142,5 +144,4 @@ acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say he
 - [ ] Implement interval scheduler
 - [ ] Implement cron scheduler
 - [ ] Add stop conditions
-- [ ] Integration with acp-team
 - [ ] Logging and output handling
