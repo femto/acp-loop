@@ -43,7 +43,12 @@ acp-loop --cron "*/5 * * * *" "check status"
 | `--interval <duration>` | Interval between runs (30s, 5m, 1h) |
 | `--cron <expression>` | Cron expression schedule |
 | `--agent <command>` | Raw ACP agent command passed through to `acpx --agent` |
-| `--agent-name <name>` | `acpx` short alias or configured agent name |
+| `-a, --agent-name <name>` | `acpx` short alias or configured agent name |
+| `--auth-policy <policy>` | Passed through to `acpx --auth-policy` |
+| `--approve-all` | Passed through to `acpx --approve-all` |
+| `--approve-reads` | Passed through to `acpx --approve-reads` |
+| `--deny-all` | Passed through to `acpx --deny-all` |
+| `--non-interactive-permissions <policy>` | Passed through to `acpx --non-interactive-permissions` |
 | `--max <n>` | Max iterations |
 | `--timeout <duration>` | Max total run time |
 | `--until <string>` | Stop when output contains string |

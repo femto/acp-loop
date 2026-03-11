@@ -21,6 +21,9 @@ acp-loop --interval 1h -a claude "review open PRs"
 
 # Pass a raw ACP agent command through to acpx --agent
 acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say hello to me"
+
+# Auto-approve permission requests for unattended runs
+acp-loop --interval 5m -a claude --approve-all "check latest Twitter mentions"
 ```
 
 ## Use Cases
@@ -36,6 +39,11 @@ acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say he
 - `--cron <expression>`: Run on a cron schedule instead of a fixed interval
 - `-a, --agent-name <name>`: Use an `acpx` short alias or configured agent name such as `claude` or `codex`
 - `--agent <command>`: Pass a raw ACP agent command straight through to `acpx --agent`
+- `--auth-policy <policy>`: Pass through to `acpx --auth-policy`
+- `--approve-all`: Pass through to `acpx --approve-all`
+- `--approve-reads`: Pass through to `acpx --approve-reads`
+- `--deny-all`: Pass through to `acpx --deny-all`
+- `--non-interactive-permissions <policy>`: Pass through to `acpx --non-interactive-permissions`
 - `--max <n>`: Stop after `n` iterations
 - `--timeout <duration>`: Stop after a total elapsed duration
 - `--until <string>`: Stop when output contains a matching string
@@ -46,7 +54,9 @@ Agent selection rules:
 - Omit both `--agent` and `-a` to use `acpx exec` with its configured default agent
 - Use `-a claude` for the normal short-alias path
 - Use `--agent "npx -y @zed-industries/claude-agent-acp"` when you need to pass a full custom command
+- Use `--approve-all` or `--approve-reads` for unattended loops that would otherwise stop on permission prompts
 - `--agent` and `-a` are mutually exclusive
+- `--approve-all`, `--approve-reads`, and `--deny-all` are mutually exclusive
 
 ## Design Questions
 
@@ -136,6 +146,13 @@ acpx config show
 
 # Or bypass the override with an explicit ACP adapter command
 acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say hello to me"
+```
+
+If a loop exits after a permission request, pass the same permission flags you would give `acpx` directly:
+
+```bash
+acp-loop --interval 5m -a claude --approve-all "check latest Twitter mentions"
+acp-loop --interval 5m -a claude --approve-reads "summarize new issues"
 ```
 
 ## TODO

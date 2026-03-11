@@ -9,6 +9,11 @@ type LoopOptions = {
   cron?: string;
   agent?: string;
   agentName?: string;
+  authPolicy?: string;
+  approveAll: boolean;
+  approveReads: boolean;
+  denyAll: boolean;
+  nonInteractivePermissions?: string;
   max?: number;
   timeout?: number;
   until?: string;
@@ -56,20 +61,62 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-function buildAcpxArgs(options: Pick<LoopOptions, 'agent' | 'agentName'>, prompt: string): string[] {
+function buildAcpxArgs(
+  options: Pick<
+    LoopOptions,
+    | 'agent'
+    | 'agentName'
+    | 'authPolicy'
+    | 'approveAll'
+    | 'approveReads'
+    | 'denyAll'
+    | 'nonInteractivePermissions'
+  >,
+  prompt: string,
+): string[] {
+  const args: string[] = [];
+
+  if (options.authPolicy) {
+    args.push('--auth-policy', options.authPolicy);
+  }
+  if (options.approveAll) {
+    args.push('--approve-all');
+  }
+  if (options.approveReads) {
+    args.push('--approve-reads');
+  }
+  if (options.denyAll) {
+    args.push('--deny-all');
+  }
+  if (options.nonInteractivePermissions) {
+    args.push('--non-interactive-permissions', options.nonInteractivePermissions);
+  }
+
   if (options.agent) {
-    return ['--agent', options.agent, 'exec', prompt];
+    args.push('--agent', options.agent, 'exec', prompt);
+    return args;
   }
 
   if (options.agentName) {
-    return [options.agentName, 'exec', prompt];
+    args.push(options.agentName, 'exec', prompt);
+    return args;
   }
 
-  return ['exec', prompt];
+  args.push('exec', prompt);
+  return args;
 }
 
 function runPrompt(
-  options: Pick<LoopOptions, 'agent' | 'agentName'>,
+  options: Pick<
+    LoopOptions,
+    | 'agent'
+    | 'agentName'
+    | 'authPolicy'
+    | 'approveAll'
+    | 'approveReads'
+    | 'denyAll'
+    | 'nonInteractivePermissions'
+  >,
   prompt: string,
   quiet: boolean,
 ): Promise<{ output: string; code: number | null; signal: NodeJS.Signals | null }> {
@@ -251,6 +298,10 @@ function validateCronExpression(value: string): string | undefined {
   }
 }
 
+function countEnabled(values: boolean[]): number {
+  return values.filter(Boolean).length;
+}
+
 const program = new Command();
 
 program
@@ -262,6 +313,14 @@ program
   .option('--cron <expression>', 'cron expression schedule (e.g., "0 3 * * *")')
   .option('--agent <command>', 'raw ACP agent command passed through to acpx --agent')
   .option('-a, --agent-name <name>', 'acpx short alias or configured agent name (e.g., claude, codex)')
+  .option('--auth-policy <policy>', 'passed through to acpx --auth-policy (skip or fail)')
+  .option('--approve-all', 'passed through to acpx --approve-all', false)
+  .option('--approve-reads', 'passed through to acpx --approve-reads', false)
+  .option('--deny-all', 'passed through to acpx --deny-all', false)
+  .option(
+    '--non-interactive-permissions <policy>',
+    'passed through to acpx --non-interactive-permissions (deny or fail)',
+  )
   .option('--max <n>', 'max iterations', parsePositiveInt)
   .option('--timeout <duration>', 'max total run time (e.g., 30s, 5m, 1h)', parseDuration)
   .option('--until <string>', 'stop when output contains this')
@@ -274,6 +333,9 @@ program
     }
     if (options.agent && options.agentName) {
       program.error('error: specify at most one of --agent or --agent-name');
+    }
+    if (countEnabled([options.approveAll, options.approveReads, options.denyAll]) > 1) {
+      program.error('error: specify at most one of --approve-all, --approve-reads, or --deny-all');
     }
     if (options.cron) {
       const errorMessage = validateCronExpression(options.cron);
