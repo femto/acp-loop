@@ -7,7 +7,8 @@ import { Cron } from 'croner';
 type LoopOptions = {
   interval?: number;
   cron?: string;
-  agent: string;
+  agent?: string;
+  agentName?: string;
   max?: number;
   timeout?: number;
   until?: string;
@@ -55,14 +56,27 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function buildAcpxArgs(options: Pick<LoopOptions, 'agent' | 'agentName'>, prompt: string): string[] {
+  if (options.agent) {
+    return ['--agent', options.agent, 'exec', prompt];
+  }
+
+  if (options.agentName) {
+    return [options.agentName, 'exec', prompt];
+  }
+
+  return ['exec', prompt];
+}
+
 function runPrompt(
-  agent: string,
+  options: Pick<LoopOptions, 'agent' | 'agentName'>,
   prompt: string,
   quiet: boolean,
 ): Promise<{ output: string; code: number | null; signal: NodeJS.Signals | null }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('acpx', [agent, 'exec', prompt], {
-      stdio: ['ignore', 'pipe', 'pipe'],
+    const child = spawn('acpx', buildAcpxArgs(options, prompt), {
+      // Keep the caller's stdin so acpx can still prompt for auth/permissions.
+      stdio: ['inherit', 'pipe', 'pipe'],
     });
 
     let output = '';
@@ -154,7 +168,7 @@ async function runLoop(prompt: string, options: LoopOptions): Promise<void> {
     console.log(`[${timestamp()}] iteration ${iteration}`);
 
     try {
-      const result = await runPrompt(options.agent, prompt, options.quiet);
+      const result = await runPrompt(options, prompt, options.quiet);
 
       if (!options.quiet) {
         const status =
@@ -241,12 +255,13 @@ const program = new Command();
 
 program
   .name('acp-loop')
-  .version('0.2.0')
+  .version('0.2.1')
   .description('Run an ACP prompt on a recurring interval')
   .argument('<prompt>', 'prompt to execute')
   .option('--interval <duration>', 'interval between runs (e.g., 30s, 5m, 1h)', parseDuration)
   .option('--cron <expression>', 'cron expression schedule (e.g., "0 3 * * *")')
-  .option('--agent <name>', 'agent to use', 'codex')
+  .option('--agent <command>', 'raw ACP agent command passed through to acpx --agent')
+  .option('-a, --agent-name <name>', 'acpx short alias or configured agent name (e.g., claude, codex)')
   .option('--max <n>', 'max iterations', parsePositiveInt)
   .option('--timeout <duration>', 'max total run time (e.g., 30s, 5m, 1h)', parseDuration)
   .option('--until <string>', 'stop when output contains this')
@@ -256,6 +271,9 @@ program
     const hasCron = options.cron !== undefined;
     if (hasInterval === hasCron) {
       program.error('error: specify exactly one of --interval or --cron');
+    }
+    if (options.agent && options.agentName) {
+      program.error('error: specify at most one of --agent or --agent-name');
     }
     if (options.cron) {
       const errorMessage = validateCronExpression(options.cron);

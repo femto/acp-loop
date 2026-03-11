@@ -13,8 +13,14 @@ acp-loop --interval 5m "check if deploy succeeded"
 # Cron-style scheduling
 acp-loop --cron "*/10 * * * *" "summarize new issues"
 
-# With specific agent
-acp-loop --interval 1h --agent codex "review open PRs"
+# Use acpx's configured/default agent
+acp-loop --interval 1h "review open PRs"
+
+# Use an acpx short alias / configured agent name
+acp-loop --interval 1h -a claude "review open PRs"
+
+# Pass a raw ACP agent command through to acpx --agent
+acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say hello to me"
 ```
 
 ## Use Cases
@@ -85,7 +91,8 @@ acpx loop --interval 5m "prompt"
 async function loop(options: {
   interval: number;      // ms
   prompt: string;
-  agent?: string;        // default: codex
+  agent?: string;        // forwarded to acpx --agent
+  agentName?: string;    // maps to acpx short alias / configured name
   maxIterations?: number;
   until?: string;        // stop condition
 }) {
@@ -110,6 +117,24 @@ async function loop(options: {
 
 - Claude Code /loop: `Added /loop command to run a prompt or slash command on a recurring interval (e.g. /loop 5m check the deploy)`
 - acp-team watch: Similar polling concept for task assignment
+
+## Troubleshooting
+
+If `acp-loop` stalls at `[client] initialize (running)`, check your `acpx` config:
+
+```bash
+acpx config show
+```
+
+`acp-loop --agent <value>` now maps directly to `acpx --agent <value> exec ...`. For `acpx` short aliases such as `claude` or `codex`, use `--agent-name <name>`. If you want the default/configured `acpx` agent, omit both flags. If your `acpx` config overrides `claude` to the raw `claude` CLI command, ACP initialization will hang. Either:
+
+```bash
+# Fix the acpx config override
+acpx config show
+
+# Or bypass the override with an explicit ACP adapter command
+acp-loop --interval 5m --agent "npx -y @zed-industries/claude-agent-acp" "say hello to me"
+```
 
 ## TODO
 

@@ -27,14 +27,24 @@ function parsePositiveInt(value) {
 function sleep(ms) {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
-function runPrompt(agent, prompt, quiet) {
+function buildAcpxArgs(options, prompt) {
+	if (options.agent) return [
+		"--agent",
+		options.agent,
+		"exec",
+		prompt
+	];
+	if (options.agentName) return [
+		options.agentName,
+		"exec",
+		prompt
+	];
+	return ["exec", prompt];
+}
+function runPrompt(options, prompt, quiet) {
 	return new Promise((resolve, reject) => {
-		const child = spawn("acpx", [
-			agent,
-			"exec",
-			prompt
-		], { stdio: [
-			"ignore",
+		const child = spawn("acpx", buildAcpxArgs(options, prompt), { stdio: [
+			"inherit",
 			"pipe",
 			"pipe"
 		] });
@@ -107,7 +117,7 @@ async function runLoop(prompt, options) {
 		iteration += 1;
 		console.log(`[${timestamp()}] iteration ${iteration}`);
 		try {
-			const result = await runPrompt(options.agent, prompt, options.quiet);
+			const result = await runPrompt(options, prompt, options.quiet);
 			if (!options.quiet) {
 				const status = result.code !== null ? `exit code ${result.code}` : `signal ${result.signal ?? "unknown"}`;
 				console.log(`[${timestamp()}] iteration ${iteration} completed (${status})`);
@@ -169,8 +179,9 @@ function validateCronExpression(value) {
 	}
 }
 const program = new Command();
-program.name("acp-loop").version("0.2.0").description("Run an ACP prompt on a recurring interval").argument("<prompt>", "prompt to execute").option("--interval <duration>", "interval between runs (e.g., 30s, 5m, 1h)", parseDuration).option("--cron <expression>", "cron expression schedule (e.g., \"0 3 * * *\")").option("--agent <name>", "agent to use", "codex").option("--max <n>", "max iterations", parsePositiveInt).option("--timeout <duration>", "max total run time (e.g., 30s, 5m, 1h)", parseDuration).option("--until <string>", "stop when output contains this").option("--quiet", "minimal output", false).action(async (prompt, options) => {
+program.name("acp-loop").version("0.2.1").description("Run an ACP prompt on a recurring interval").argument("<prompt>", "prompt to execute").option("--interval <duration>", "interval between runs (e.g., 30s, 5m, 1h)", parseDuration).option("--cron <expression>", "cron expression schedule (e.g., \"0 3 * * *\")").option("--agent <command>", "raw ACP agent command passed through to acpx --agent").option("-a, --agent-name <name>", "acpx short alias or configured agent name (e.g., claude, codex)").option("--max <n>", "max iterations", parsePositiveInt).option("--timeout <duration>", "max total run time (e.g., 30s, 5m, 1h)", parseDuration).option("--until <string>", "stop when output contains this").option("--quiet", "minimal output", false).action(async (prompt, options) => {
 	if (options.interval !== void 0 === (options.cron !== void 0)) program.error("error: specify exactly one of --interval or --cron");
+	if (options.agent && options.agentName) program.error("error: specify at most one of --agent or --agent-name");
 	if (options.cron) {
 		const errorMessage = validateCronExpression(options.cron);
 		if (errorMessage) program.error(`error: ${errorMessage}`);
